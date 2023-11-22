@@ -168,7 +168,7 @@ class LockedOutput:
                 np.save(f, self.logits)
 
 
-def extract_logits(model, prefix, topk=False, eps=1e-6):
+def extract_logprobs(model, prefix, topk=False, eps=1e-6):
     enc = tiktoken.encoding_for_model(model)
     vocab_size = enc.n_vocab
 
