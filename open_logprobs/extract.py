@@ -119,7 +119,7 @@ def bisection_search(model, idx, prefix, low=0, high=32, eps=1e-8):
         num_calls += 1
     return -mid, num_calls
 
-def prob_search(model, idx, prefix, high=40):
+def topk_search(model, idx, prefix, high=40):
     # get raw topk, could be done outside and passed in
     topk = topk(model, prefix)
     highest_idx = list(topk.keys())[np.argmax(list(topk.values()))]
@@ -168,13 +168,13 @@ class LockedOutput:
                 np.save(f, self.logits)
 
 
-def extract(model, prefix, topk=False, eps=1e-6):
+def extract_logits(model, prefix, topk=False, eps=1e-6):
     enc = tiktoken.encoding_for_model(model)
     vocab_size = enc.n_vocab
 
     output = LockedOutput(vocab_size, total_calls = 0)
 
-    search = prob_search if topk else bisection_search
+    search = topk_search if topk else bisection_search
 
     def worker(x, output):
         # TODO test if variable capture works
