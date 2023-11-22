@@ -1,7 +1,8 @@
-import openai
-import numpy as np
 from tqdm import tqdm
+import openai
 import tiktoken
+import numpy as np
+from scipy.special import logsumexp
 
 
 def topk(model, prefix, logit_bias=None, system=None):
