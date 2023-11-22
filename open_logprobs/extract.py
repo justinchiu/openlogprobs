@@ -128,14 +128,14 @@ def prob_search(model, idx, prefix, high=40):
 
     # initialize high
     logit_bias = {idx: high}
-    new_max_idx = sampler.sample(prefix, 1, logit_bias, temperature=0).argmax
+    new_max_idx = argmax(model, prefix, logit_bias)
     num_calls = 2
     while new_max_idx != idx:
         logit_bias[idx] *= 2
-        new_max_idx = sampler.sample(prefix, 1, logit_bias, temperature=0).argmax
+        new_max_idx = argmax(model, prefix, logit_bias)
         num_calls += 1
     high = logit_bias[idx]
-    output = sampler.topk(prefix, logit_bias)
+    output = topk(model, prefix, logit_bias)
     num_calls += 1
 
     # compute normalizing constant
@@ -169,8 +169,8 @@ class LockedOutput:
 
 
 def extract(model, prefix, topk=False, eps=1e-6):
-    vocab_size = sampler.vocab_size
-    logit_bias = {}
+    enc = tiktoken.encoding_for_model(model)
+    vocab_size = enc.n_vocab
 
     output = LockedOutput(vocab_size, total_calls = 0)
 
