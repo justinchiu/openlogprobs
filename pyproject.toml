@@ -16,6 +16,7 @@ openai = "*"
 tenacity = "*"
 scipy = "*"
 datasets = "*"
+pytest = "*"
 
 [build-system]
 requires = ["poetry-core"]
