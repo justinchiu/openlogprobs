@@ -1,15 +1,20 @@
 from tqdm import tqdm
-import openai
 import tiktoken
 import numpy as np
 from scipy.special import logsumexp
+import os
+import math
+
+from openai import OpenAI
+
+client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 
 def topk(model, prefix, logit_bias=None, system=None):
     enc = tiktoken.encoding_for_model(model)
     if model == "gpt-3.5-turbo-instruct":
         if logit_bias is not None:
-            response = openai.Completion.create(
+            response = client.completions.create(
                 model=model,
                 prompt=prefix,
                 temperature=1,
@@ -18,7 +23,7 @@ def topk(model, prefix, logit_bias=None, system=None):
                 logprobs=5,
             )
         else:
-            response = openai.Completion.create(
+            response = client.completions.create(
                 model=model,
                 prompt=prefix,
                 temperature=1,
@@ -28,10 +33,8 @@ def topk(model, prefix, logit_bias=None, system=None):
     else:
         raise NotImplementedError(f"Tried to get topk logprobs for: {model}")
     topk_dict = response.choices[0].logprobs.top_logprobs[0]
-    return {
-        enc.encode(x)[0]: y
-        for x,y in topk_dict.items()
-    }
+    return {enc.encode(x)[0]: y for x, y in topk_dict.items()}
+
 
 def argmax(model, prefix, logit_bias=None, system=None):
     system = "You are a helpful assistant." if system is None else system
@@ -39,7 +42,7 @@ def argmax(model, prefix, logit_bias=None, system=None):
     enc = tiktoken.encoding_for_model(model)
     if model == "gpt-3.5-turbo-instruct":
         if logit_bias is not None:
-            response = openai.Completion.create(
+            response = client.completions.create(
                 model=model,
                 prompt=prefix,
                 temperature=0,
@@ -48,7 +51,7 @@ def argmax(model, prefix, logit_bias=None, system=None):
                 n=1,
             )
         else:
-            response = openai.Completion.create(
+            response = client.completions.create(
                 model=model,
                 prompt=prefix,
                 temperature=0,
@@ -56,11 +59,13 @@ def argmax(model, prefix, logit_bias=None, system=None):
                 n=1,
             )
         output = response.choices[0].text
-        eos_idx = enc.encode("<|endoftext|>", allowed_special={"<|endoftext|>", "<|im_start|>"})[0]
+        eos_idx = enc.encode(
+            "<|endoftext|>", allowed_special={"<|endoftext|>", "<|im_start|>"}
+        )[0]
         outputs = [choice.text for choice in response.choices]
     else:
         if logit_bias is not None:
-            response = openai.ChatCompletion.create(
+            response = client.chat.completions.create(
                 model=model,
                 messages=[
                     {"role": "system", "content": system},
@@ -72,7 +77,7 @@ def argmax(model, prefix, logit_bias=None, system=None):
                 n=1,
             )
         else:
-            response = openai.ChatCompletion.create(
+            response = client.chat.completions.create(
                 model=model,
                 messages=[
                     {"role": "system", "content": system},
@@ -84,7 +89,9 @@ def argmax(model, prefix, logit_bias=None, system=None):
             )
         output = response.choices[0].message["content"]
         outputs = [choice.message["content"] for choice in response.choices]
-        eos_idx = enc.encode("<|endoftext|>", allowed_special={"<|endoftext|>", "<|im_start|>"})[0]
+        eos_idx = enc.encode(
+            "<|endoftext|>", allowed_special={"<|endoftext|>", "<|im_start|>"}
+        )[0]
 
     # just give eos_idx if there's a weird failure
     # TODO: fix this for the weird vocabs
@@ -93,12 +100,14 @@ def argmax(model, prefix, logit_bias=None, system=None):
     elif response.choices[0].finish_reason == "stop":
         idx = eos_idx
     else:
-        import pdb; pdb.set_trace()
+        import pdb
+
+        pdb.set_trace()
 
     return idx
 
 
-def bisection_search(model, idx, prefix, low=0, high=32, eps=1e-8):
+def bisection_search(model, prefix, idx, low=0, high=32, eps=1e-8):
     # initialize high
     logit_bias = {idx: high}
     num_calls = 1
@@ -119,12 +128,13 @@ def bisection_search(model, idx, prefix, low=0, high=32, eps=1e-8):
         num_calls += 1
     return -mid, num_calls
 
-def topk_search(model, idx, prefix, high=40):
+
+def topk_search(model, prefix, idx, high=40):
     # get raw topk, could be done outside and passed in
-    topk = topk(model, prefix)
-    highest_idx = list(topk.keys())[np.argmax(list(topk.values()))]
+    topk_words = topk(model, prefix)
+    highest_idx = list(topk_words.keys())[np.argmax(list(topk_words.values()))]
     if idx == highest_idx:
-        return topk[idx], 1
+        return topk_words[idx], 1
 
     # initialize high
     logit_bias = {idx: high}
@@ -139,15 +149,17 @@ def topk_search(model, idx, prefix, high=40):
     num_calls += 1
 
     # compute normalizing constant
-    diff = topk[highest_idx] - output[highest_idx]
+    diff = topk_words[highest_idx] - output[highest_idx]
     logZ = high - math.log(math.exp(diff) - 1)
     # ideally would be output[idx], but it seems like openai sometimes returns weird things?
-    fv = np.max(list(output.values())) + math.log(math.exp(logZ) + math.exp(high)) - high
+    fv = (
+        np.max(list(output.values())) + math.log(math.exp(logZ) + math.exp(high)) - high
+    )
     logprob = fv - logZ
 
     if np.max(list(output.values())) == output[highest_idx]:
         # highest probability word didnt change
-        print("MESSED UP", idx, high, new_max_idx, highest_idx, topk, output)
+        print("MESSED UP", idx, high, new_max_idx, highest_idx, topk_words, output)
         import pdb; pdb.set_trace()
 
     return logprob, num_calls
@@ -172,7 +184,7 @@ def extract_logprobs(model, prefix, topk=False, eps=1e-6):
     enc = tiktoken.encoding_for_model(model)
     vocab_size = enc.n_vocab
 
-    output = LockedOutput(vocab_size, total_calls = 0)
+    output = LockedOutput(vocab_size, total_calls=0)
 
     search = topk_search if topk else bisection_search
 
@@ -188,4 +200,3 @@ def extract_logprobs(model, prefix, topk=False, eps=1e-6):
                 pbar.update(1)
 
     return output.logits - logsumexp(outputs.logits), output.total_calls
-
