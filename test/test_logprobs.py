@@ -21,12 +21,15 @@ def test_bisection():
     estimated_diffs = np.array(sorted([x[0] for x in estimated_diffs.values()]))
     assert np.allclose(true_diffs, estimated_diffs, atol=1e-5)
 
+
 def test_topk():
     true_probs = np.array(sorted(topk_words.values()))
 
-    estimated_probs = {word: topk_search(model, prefix, word) for word in topk_words.keys()}
-    estimated_probs = np.array(sorted([x[0] for x in estimated_probs.values()]))            
-    assert np.allclose(true_probs, estimated_probs, atol=1e-5)                              
+    estimated_probs = {
+        word: topk_search(model, prefix, word) for word in topk_words.keys()
+    }
+    estimated_probs = np.array(sorted([x[0] for x in estimated_probs.values()]))
+    assert np.allclose(true_probs, estimated_probs, atol=1e-5)
 
 
 def test_topk_consistency():

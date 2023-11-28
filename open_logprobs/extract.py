@@ -99,6 +99,7 @@ def argmax(model, prefix, logit_bias=None, system=None):
 def median_argmax(k, *args, **kwargs):
     return np.median([argmax(*args, **kwargs) for _ in range(k)])
 
+
 def median_topk(k, *args, **kwargs):
     results = [topk(*args, **kwargs) for _ in range(k)]
     return {
