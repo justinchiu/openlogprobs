@@ -107,47 +107,52 @@ def median_topk(k, *args, **kwargs):
     }
 
 
-def bisection_search(model, prefix, idx, low=0, high=32, eps=1e-8):
+def bisection_search(model, prefix, idx, k=5, low=0, high=32, eps=1e-8):
+    # check if idx is the argmax
+    num_calls = k
+    if median_argmax(k, model, prefix) == idx:
+        return 0, num_calls
+
     # initialize high
     logit_bias = {idx: high}
-    num_calls = 1
-    while median_argmax(5, model, prefix, logit_bias) != idx:
+    while median_argmax(k, model, prefix, logit_bias) != idx:
         logit_bias[idx] *= 2
-        num_calls += 1
+        num_calls += k
     high = logit_bias[idx]
 
     # improve estimate
     mid = (high + low) / 2
     while high >= low + eps:
         logit_bias[idx] = mid
-        if median_argmax(5, model, prefix, logit_bias) == idx:
+        if median_argmax(k, model, prefix, logit_bias) == idx:
             high = mid
         else:
             low = mid
         mid = (high + low) / 2
-        num_calls += 1
+        num_calls += k
     return -mid, num_calls
 
 
-def topk_search(model, prefix, idx, high=40):
+def topk_search(model, prefix, idx, k=5, high=40):
     # get raw topk, could be done outside and passed in
-    topk_words = median_topk(5, model, prefix)
+    topk_words = median_topk(k, model, prefix)
     highest_idx = list(topk_words.keys())[np.argmax(list(topk_words.values()))]
     if idx == highest_idx:
-        return topk_words[idx], 1
+        return topk_words[idx], k
+    num_calls = k
 
     # initialize high
     logit_bias = {idx: high}
-    new_max_idx = median_argmax(5, model, prefix, logit_bias)
-    num_calls = 2
+    new_max_idx = median_argmax(k, model, prefix, logit_bias)
+    num_calls += k
     while new_max_idx != idx:
         logit_bias[idx] *= 2
-        new_max_idx = median_argmax(5, model, prefix, logit_bias)
-        num_calls += 1
+        new_max_idx = median_argmax(k, model, prefix, logit_bias)
+        num_calls += k
     high = logit_bias[idx]
 
-    output = median_topk(5, model, prefix, logit_bias)
-    num_calls += 1
+    output = median_topk(k, model, prefix, logit_bias)
+    num_calls += k
 
     # compute normalizing constant
     diff = topk_words[highest_idx] - output[highest_idx]
