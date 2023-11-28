@@ -93,6 +93,7 @@ def argmax(model, prefix, logit_bias=None, system=None):
             "<|endoftext|>", allowed_special={"<|endoftext|>", "<|im_start|>"}
         )[0]
 
+    return enc.encode(output)[0]
     # just give eos_idx if there's a weird failure
     # TODO: fix this for the weird vocabs
     if response.choices[0].finish_reason == "length":
@@ -118,7 +119,7 @@ def bisection_search(model, prefix, idx, low=0, high=32, eps=1e-8):
 
     # improve estimate
     mid = (high + low) / 2
-    while high > low + eps:
+    while high >= low + eps:
         logit_bias[idx] = mid
         if argmax(model, prefix, logit_bias) == idx:
             high = mid
@@ -151,16 +152,10 @@ def topk_search(model, prefix, idx, high=40):
     # compute normalizing constant
     diff = topk_words[highest_idx] - output[highest_idx]
     logZ = high - math.log(math.exp(diff) - 1)
-    # ideally would be output[idx], but it seems like openai sometimes returns weird things?
     fv = (
-        np.max(list(output.values())) + math.log(math.exp(logZ) + math.exp(high)) - high
+        output[idx] + math.log(math.exp(logZ) + math.exp(high)) - high
     )
     logprob = fv - logZ
-
-    if np.max(list(output.values())) == output[highest_idx]:
-        # highest probability word didnt change
-        print("MESSED UP", idx, high, new_max_idx, highest_idx, topk_words, output)
-        import pdb; pdb.set_trace()
 
     return logprob, num_calls
 
