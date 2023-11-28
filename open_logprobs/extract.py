@@ -94,25 +94,24 @@ def argmax(model, prefix, logit_bias=None, system=None):
         )[0]
 
     return enc.encode(output)[0]
-    # just give eos_idx if there's a weird failure
-    # TODO: fix this for the weird vocabs
-    if response.choices[0].finish_reason == "length":
-        idx = enc.encode(output)[0] if output else eos_idx
-    elif response.choices[0].finish_reason == "stop":
-        idx = eos_idx
-    else:
-        import pdb
 
-        pdb.set_trace()
 
-    return idx
+def median_argmax(k, *args, **kwargs):
+    return np.median([argmax(*args, **kwargs) for _ in range(k)])
+
+def median_topk(k, *args, **kwargs):
+    results = [topk(*args, **kwargs) for _ in range(k)]
+    return {
+        word: np.median([result[word] for result in results])
+        for word in results[0].keys()
+    }
 
 
 def bisection_search(model, prefix, idx, low=0, high=32, eps=1e-8):
     # initialize high
     logit_bias = {idx: high}
     num_calls = 1
-    while argmax(model, prefix, logit_bias) != idx:
+    while median_argmax(5, model, prefix, logit_bias) != idx:
         logit_bias[idx] *= 2
         num_calls += 1
     high = logit_bias[idx]
@@ -121,7 +120,7 @@ def bisection_search(model, prefix, idx, low=0, high=32, eps=1e-8):
     mid = (high + low) / 2
     while high >= low + eps:
         logit_bias[idx] = mid
-        if argmax(model, prefix, logit_bias) == idx:
+        if median_argmax(5, model, prefix, logit_bias) == idx:
             high = mid
         else:
             low = mid
@@ -132,29 +131,28 @@ def bisection_search(model, prefix, idx, low=0, high=32, eps=1e-8):
 
 def topk_search(model, prefix, idx, high=40):
     # get raw topk, could be done outside and passed in
-    topk_words = topk(model, prefix)
+    topk_words = median_topk(5, model, prefix)
     highest_idx = list(topk_words.keys())[np.argmax(list(topk_words.values()))]
     if idx == highest_idx:
         return topk_words[idx], 1
 
     # initialize high
     logit_bias = {idx: high}
-    new_max_idx = argmax(model, prefix, logit_bias)
+    new_max_idx = median_argmax(5, model, prefix, logit_bias)
     num_calls = 2
     while new_max_idx != idx:
         logit_bias[idx] *= 2
-        new_max_idx = argmax(model, prefix, logit_bias)
+        new_max_idx = median_argmax(5, model, prefix, logit_bias)
         num_calls += 1
     high = logit_bias[idx]
-    output = topk(model, prefix, logit_bias)
+
+    output = median_topk(5, model, prefix, logit_bias)
     num_calls += 1
 
     # compute normalizing constant
     diff = topk_words[highest_idx] - output[highest_idx]
     logZ = high - math.log(math.exp(diff) - 1)
-    fv = (
-        output[idx] + math.log(math.exp(logZ) + math.exp(high)) - high
-    )
+    fv = output[idx] + math.log(math.exp(logZ) + math.exp(high)) - high
     logprob = fv - logZ
 
     return logprob, num_calls
@@ -184,7 +182,6 @@ def extract_logprobs(model, prefix, topk=False, eps=1e-6):
     search = topk_search if topk else bisection_search
 
     def worker(x, output):
-        # TODO test if variable capture works
         logprob, num_calls = search(model, x, prefix)
         output.add(num_calls, x, logprob)
 

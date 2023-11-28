@@ -15,7 +15,9 @@ def test_bisection():
     true_sorted_logprobs = np.array(sorted(topk_words.values()))
     true_diffs = true_sorted_logprobs - true_sorted_logprobs.max()
 
-    estimated_diffs = {word: bisection_search(model, prefix, word) for word in topk_words.keys()}
+    estimated_diffs = {
+        word: bisection_search(model, prefix, word) for word in topk_words.keys()
+    }
     estimated_diffs = np.array(sorted([x[0] for x in estimated_diffs.values()]))
     assert np.allclose(true_diffs, estimated_diffs, atol=1e-5)
 
@@ -23,8 +25,24 @@ def test_topk():
     true_probs = np.array(sorted(topk_words.values()))
 
     estimated_probs = {word: topk_search(model, prefix, word) for word in topk_words.keys()}
-    estimated_probs = np.array(sorted([x[0] for x in estimated_probs.values()]))
-    assert np.allclose(true_probs, estimated_probs, atol=1e-5)
+    estimated_probs = np.array(sorted([x[0] for x in estimated_probs.values()]))            
+    assert np.allclose(true_probs, estimated_probs, atol=1e-5)                              
+
+
+def test_topk_consistency():
+    true_probs = np.array(sorted(topk_words.values()))
+
+    probs = []
+    for trial in range(10):
+        estimated_probs = {
+            word: topk_search(model, prefix, word) for word in topk_words.keys()
+        }
+        estimated_probs = np.array(sorted([x[0] for x in estimated_probs.values()]))
+        probs.append(estimated_probs)
+    probs = np.stack(probs)
+    # print(probs)
+    assert np.allclose(true_probs, np.median(probs, 0), atol=1e-5)
+
 
 def test_extract():
     assert False
