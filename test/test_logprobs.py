@@ -43,7 +43,6 @@ def test_topk_consistency():
         estimated_probs = np.array(sorted([x[0] for x in estimated_probs.values()]))
         probs.append(estimated_probs)
     probs = np.stack(probs)
-    # print(probs)
     assert np.allclose(true_probs, np.median(probs, 0), atol=1e-5)
 
 
