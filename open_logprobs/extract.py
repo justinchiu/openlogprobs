@@ -4,6 +4,8 @@ import numpy as np
 from scipy.special import logsumexp
 import os
 import math
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from openai import OpenAI
 
