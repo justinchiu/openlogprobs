@@ -181,7 +181,7 @@ class LockedOutput:
                 np.save(f, self.logits)
 
 
-def extract_logprobs(model, prefix, topk=False, eps=1e-6):
+def extract_logprobs(model, prefix, topk=False, k=5, eps=1e-6):
     enc = tiktoken.encoding_for_model(model)
     vocab_size = enc.n_vocab
 
@@ -190,7 +190,7 @@ def extract_logprobs(model, prefix, topk=False, eps=1e-6):
     search = topk_search if topk else bisection_search
 
     def worker(x, output):
-        logprob, num_calls = search(model, x, prefix)
+        logprob, num_calls = search(model, x, prefix, k=k)
         output.add(num_calls, x, logprob)
 
     with tqdm(total=vocab_size) as pbar:
