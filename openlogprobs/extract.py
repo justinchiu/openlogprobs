@@ -6,8 +6,8 @@ import math
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from open_logprobs.models import Model
-from open_logprobs.utils import LockedOutput
+from openlogprobs.models import Model
+from openlogprobs.utils import LockedOutput
 
 
 def bisection_search(model: Model, prefix: str, idx: int, k=1, low=0, high=32, eps=1e-8):
