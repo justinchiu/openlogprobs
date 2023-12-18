@@ -11,6 +11,3 @@ class LockedOutput:
         with self.lock:
             self.total_calls += calls
             self.logits[x] = diff
-            with open("temp/out.npy", "wb") as f:
-                # TODO: better temp file saving
-                np.save(f, self.logits)
