@@ -1,6 +1,6 @@
 # openlogprobs
 
-### 🪄 openlogprobs is a Python API for extracting log-probabilities from language model APIs 🪄 </p>
+#### 🪄 openlogprobs is a Python API for extracting log-probabilities from language model APIs 🪄 </p>
 
 
 ```bash
