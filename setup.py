@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="openlogprobs",
-    version="0.0.1",
+    version="0.0.2",
     description="extract log-probabilities from APIs",
     author="Justin Chiu & Jack Morris",
     author_email="jtc257@cornell.edu",
