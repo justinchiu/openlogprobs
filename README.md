@@ -1,5 +1,13 @@
 # openlogprobs
-## <i> openlogprobs is a Python API for extracting log-probabilities from language model APIs </i>
+
+### 🪄 openlogprobs is a Python API for extracting log-probabilities from language model APIs 🪄 </p>
+
+
+```bash
+pip install openlogprobs
+```
+
+<hr>
 
 ![openlogprobs on pypi](https://badge.fury.io/py/openlogprobs.svg)
 
@@ -11,9 +19,7 @@ However, most APIs also allow a 'logit bias' argument to positively or negativel
 
 
 ## Usage
-```bash
-pip install openlogprobs
-```
+
 ### topk search
 
 If the API exposes the top-k log-probabilities, we can efficiently extract the next-token probabilities via our 'topk' algorithm:
@@ -27,7 +33,7 @@ extract_logprobs("gpt-3.5-turbo-instruct", "i like pie", topk=True)
 
 If the API does not expose top-k logprobs, we can still extract the distribution, but it takes more language model calls:
 
-```
+```python
 from openlogprobs import extract_logprobs
 extract_logprobs("gpt-3.5-turbo-instruct", "i like pie", topk=False)
 ```
@@ -44,9 +50,9 @@ Our algorithm is esssentially a binary search (technically 'univariate bisection
 
 Here's a crude visualization of how our algorithm works for a single token:
 
-<img src="https://github.com/justinchiu/openlogprobs/raw/main/vis.png" />
+<img src="https://github.com/justinchiu/openlogprobs/raw/main/vis.png" width="600"/>
 
-Each API call brings us successively closer to the true token probability.
+Each API call (purple) brings us successively closer to the true token probability (green).
 
 
 ## Language Model Inversion paper
