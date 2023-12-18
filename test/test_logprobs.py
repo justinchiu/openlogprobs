@@ -1,17 +1,76 @@
+from typing import Dict
+
 import numpy as np
-from open_logprobs.extract import (
+import pytest
+from scipy.special import log_softmax
+import transformers
+
+from open_logprobs import (
     extract_logprobs,
+    # OpenAIModel,
+)
+from open_logprobs.extract import (
     bisection_search,
     topk_search,
-    topk as topk_,
 )
+from open_logprobs.models import Model
 
 prefix = "Should i take this class or not? The professor of this class is not good at all. He doesn't teach well and he is always late for class."
-model = "gpt-3.5-turbo-instruct"
-topk_words = topk_(model, prefix)
 
 
-def test_bisection():
+def load_fake_logits(vocab_size: int) -> np.ndarray:
+    np.random.seed(42)
+    logits = np.random.randn(vocab_size)
+    logits[1] += 10
+    logits[12] += 20
+    logits[13] += 30
+    logits[24] += 30
+    logits[35] += 30
+    return logits
+
+
+class FakeModel(Model):
+    """Represents a fake API with a temperature of 1. Used for testing."""
+    def __init__(self, vocab_size: int = 100):
+        self.tokenizer = transformers.AutoTokenizer.from_pretrained("gpt2")
+        self.fake_vocab_size = vocab_size
+        self.logits = load_fake_logits(self.vocab_size)[:vocab_size]
+
+    @property
+    def vocab_size(self):
+        return self.fake_vocab_size
+
+    def _idx_to_str(self, idx: int) -> str:
+        return self.tokenizer.decode([idx], skip_special_tokens=True)
+
+    def _add_logit_bias(self, logit_bias: Dict[str, float]) -> np.ndarray:
+        logits = self.logits.copy()
+        for token_idx, bias in logit_bias.items():
+            logits[token_idx] += bias
+        logits = logits.astype(np.double)
+        return log_softmax(logits)
+    
+    def argmax(self, prefix: str, logit_bias: Dict[str, float] = {}) -> int:
+        logits = self._add_logit_bias(logit_bias)
+        return logits.argmax()
+    
+    def topk(self, prefix: str, logit_bias: Dict[str, float] = {}) -> Dict[int, float]:
+        k = 5 # TODO: what topk?
+        logits = self._add_logit_bias(logit_bias)
+        topk = logits.argsort()[-k:]
+        return {k: logits[k] for k in topk}
+
+
+@pytest.fixture
+def model():
+    # return OpenAIModel("gpt-3.5-turbo-instruct")
+    return FakeModel()
+
+@pytest.fixture
+def topk_words(model):
+    return model.topk(prefix)
+
+def test_bisection(model, topk_words):
     true_sorted_logprobs = np.array(sorted(topk_words.values()))
     true_diffs = true_sorted_logprobs - true_sorted_logprobs.max()
 
@@ -22,7 +81,7 @@ def test_bisection():
     assert np.allclose(true_diffs, estimated_diffs, atol=1e-5)
 
 
-def test_topk():
+def test_topk(model, topk_words):
     true_probs = np.array(sorted(topk_words.values()))
 
     estimated_probs = {
@@ -32,11 +91,11 @@ def test_topk():
     assert np.allclose(true_probs, estimated_probs, atol=1e-5)
 
 
-def test_topk_consistency():
+def test_topk_consistency(model, topk_words):
     true_probs = np.array(sorted(topk_words.values()))
 
     probs = []
-    for trial in range(10):
+    for _trial in range(10):
         estimated_probs = {
             word: topk_search(model, prefix, word) for word in topk_words.keys()
         }
@@ -46,5 +105,21 @@ def test_topk_consistency():
     assert np.allclose(true_probs, np.median(probs, 0), atol=1e-5)
 
 
-def test_extract():
-    assert False
+def test_extract_topk(model):
+    true_logprobs = log_softmax(model.logits)
+    extracted_logprobs, num_calls = extract_logprobs(model, prefix="test", topk=True, multithread=False, k=1)
+    np.testing.assert_allclose(true_logprobs, extracted_logprobs)
+    assert num_calls == 298
+
+
+def test_extract_bisection(model):
+    true_logprobs = log_softmax(model.logits)
+    extracted_logprobs, num_calls = extract_logprobs(model, prefix="test", topk=False, multithread=False, k=1)
+    np.testing.assert_allclose(true_logprobs, extracted_logprobs)
+    assert num_calls == 3270
+
+def test_extract_topk_multithread(model):
+    true_logprobs = log_softmax(model.logits)
+    extracted_logprobs, num_calls = extract_logprobs(model, prefix="test", topk=True, multithread=True, k=1)
+    np.testing.assert_allclose(true_logprobs, extracted_logprobs)
+    assert num_calls == 298
