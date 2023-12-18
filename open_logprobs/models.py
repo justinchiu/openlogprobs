@@ -15,11 +15,11 @@ class Model(abc.ABC):
         return -1
 
     @abc.abstractmethod
-    def argmax(self, prefix: str, logit_bias: Dict[str, float] = {}) -> str:
+    def argmax(self, prefix: str, logit_bias: Dict[str, float] = {}) -> int:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def topk(self, prefix: str, logit_bias: Dict[str, float] = {}) -> Dict[str, float]:
+    def topk(self, prefix: str, logit_bias: Dict[str, float] = {}) -> Dict[int, float]:
         raise NotImplementedError
 
     def median_topk(self, k, *args, **kwargs):
@@ -48,7 +48,7 @@ class OpenAIModel(Model):
     def vocab_size(self) -> int:
         return self.encoding.n_vocab
     
-    def argmax(self, prefix: str, logit_bias:  Dict[str, float] = {}) -> str:
+    def argmax(self, prefix: str, logit_bias:  Dict[str, float] = {}) -> int:
         model = self.model
         system = self.system
         enc = tiktoken.encoding_for_model(model)
@@ -107,7 +107,7 @@ class OpenAIModel(Model):
 
         return enc.encode(output)[0]
     
-    def topk(self, prefix: str, logit_bias: Dict[str, float] = {}) -> Dict[str, float]:
+    def topk(self, prefix: str, logit_bias: Dict[str, float] = {}) -> Dict[int, float]:
         enc = self.encoding
         model = self.model
         system = self.system
