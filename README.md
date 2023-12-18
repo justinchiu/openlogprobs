@@ -1,7 +1,7 @@
 # openlogprobs
 ## <i> openlogprobs is a Python API for extracting log-probabilities from language model APIs </i>
 
-![openlogprobs on pypi](https://badge.fury.io/py/language-tool-python.svg)
+![openlogprobs on pypi](https://badge.fury.io/py/openlogprobs.svg)
 
 ![Test with PyTest](https://github.com/justinchiu/openlogprobs/workflows/Test%20with%20PyTest/badge.svg)
 
