@@ -5,15 +5,15 @@ import pytest
 from scipy.special import log_softmax
 import transformers
 
-from open_logprobs import (
+from openlogprobs import (
     extract_logprobs,
     # OpenAIModel,
 )
-from open_logprobs.extract import (
+from openlogprobs.extract import (
     bisection_search,
     topk_search,
 )
-from open_logprobs.models import Model
+from openlogprobs.models import Model
 
 prefix = "Should i take this class or not? The professor of this class is not good at all. He doesn't teach well and he is always late for class."
 

@@ -1,10 +1,10 @@
-# open_logprobs
+# openlogprobs
 
-![open_logprobs on pypi](https://badge.fury.io/py/language-tool-python.svg)
+![openlogprobs on pypi](https://badge.fury.io/py/language-tool-python.svg)
 
-![Test with PyTest](https://github.com/justinchiu/open_logprobs/workflows/Test%20with%20PyTest/badge.svg)
+![Test with PyTest](https://github.com/justinchiu/openlogprobs/workflows/Test%20with%20PyTest/badge.svg)
 
-from open_logprobs import extract_logprobs
+from openlogprobs import extract_logprobs
 ### topk search
 extract_logprobs("gpt-3.5-turbo-instruct", "i like pie", topk=True)
 

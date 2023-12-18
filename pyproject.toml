@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "open_logprobs"
+name = "openlogprobs"
 version = "0.0.0"
 description = "Logprob estimation from LLM APIs"
 authors = ["Justin Chiu <chiu.justin.t@gmail.com>"]
