@@ -1,40 +1,65 @@
+from typing import Dict
+
 import numpy as np
 import pytest
+from scipy.special import log_softmax
+import transformers
 
 from open_logprobs import (
     extract_logprobs,
+    OpenAIModel,
+)
+from open_logprobs.extract import (
     bisection_search,
     topk_search,
-    topk as topk_,
-    Model,
-    OpenAIModel
 )
+from open_logprobs.models import Model
 
 prefix = "Should i take this class or not? The professor of this class is not good at all. He doesn't teach well and he is always late for class."
 
+
+def load_fake_logits(vocab_size: int) -> np.ndarray:
+    logits = np.random.randn(vocab_size)
+    logits[1] += 10
+    logits[12] += 20
+    logits[13] += 30
+    logits[24] += 30
+    logits[35] += 30
+    return log_softmax(logits)
+
+
 class FakeModel(Model):
     def __init__(self):
-        self.logits = load_logits(??)...
-        self.tokenizer = ??
+        self.tokenizer = transformers.AutoTokenizer.from_pretrained("gpt2")
+        self.logits = load_fake_logits(self.vocab_size)
 
     @property
     def vocab_size(self):
-        return self.logits.numel()
+        return self.tokenizer.vocab_size
 
-    def _add_logit_bias(logit_bias: Dict[str, float]) -> np.ndarray:
-        logits = self.logits.clone()
-        for token, bias in logit_bias:
+    def _idx_to_str(self, idx: int) -> str:
+        return self.tokenizer.decode([idx], skip_special_tokens=True)
+
+    def _add_logit_bias(self, logit_bias: Dict[str, float]) -> np.ndarray:
+        print("_add_logit_bias", logit_bias)
+        logits = self.logits.copy()
+        for token, bias in logit_bias.items():
             token_idx = self.tokenizer.vocab[token]
             logits[token_idx] += bias
-        return logits
+        logits = logits.astype(np.double)
+        logits = np.exp(logits)
+        return log_softmax(logits)
     
-    def argmax(self, prefix: str, logit_bias: Dict[str, float] = {}) -> str
+    def argmax(self, prefix: str, logit_bias: Dict[str, float] = {}) -> str:
         logits = self._add_logit_bias(logit_bias)
-        return self.logits.argmax()
+        argmax = logits.argmax()
+        return self._idx_to_str(argmax)
     
     def topk(self, prefix: str, logit_bias: Dict[str, float] = {}) -> Dict[str, float]:
+        k = 5 # TODO: what topk?
         logits = self._add_logit_bias(logit_bias)
-        return self.logits.topk(??)
+        topk = self.logits.argsort()[-k:]
+        return {self._idx_to_str(k): logits[k] for k in topk}
 
 
 @pytest.fixture
@@ -44,7 +69,7 @@ def model():
 
 @pytest.fixture
 def topk_words(model):
-    return topk_(model, prefix)
+    return model.topk(prefix)
 
 def test_bisection(model, topk_words):
     true_sorted_logprobs = np.array(sorted(topk_words.values()))

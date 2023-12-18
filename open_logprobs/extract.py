@@ -10,16 +10,15 @@ from open_logprobs.models import Model
 from open_logprobs.utils import LockedOutput
 
 
-
 def bisection_search(model: Model, prefix: str, idx: int, k=5, low=0, high=32, eps=1e-8):
     # check if idx is the argmax
     num_calls = k
-    if model.median_argmax(k, model, prefix) == idx:
+    if model.argmax(prefix) == idx:
         return 0, num_calls
 
     # initialize high
     logit_bias = {idx: high}
-    while model.median_argmax(k, model, prefix, logit_bias) != idx:
+    while model.argmax(prefix, logit_bias) != idx:
         logit_bias[idx] *= 2
         num_calls += k
     high = logit_bias[idx]
@@ -28,7 +27,7 @@ def bisection_search(model: Model, prefix: str, idx: int, k=5, low=0, high=32, e
     mid = (high + low) / 2
     while high >= low + eps:
         logit_bias[idx] = mid
-        if model.median_argmax(k, model, prefix, logit_bias) == idx:
+        if model.argmax(prefix, logit_bias) == idx:
             high = mid
         else:
             low = mid
@@ -39,7 +38,7 @@ def bisection_search(model: Model, prefix: str, idx: int, k=5, low=0, high=32, e
 
 def topk_search(model: Model, prefix: str, idx: int, k=5, high=40):
     # get raw topk, could be done outside and passed in
-    topk_words = model.median_topk(k, model, prefix)
+    topk_words = model.topk(prefix)
     highest_idx = list(topk_words.keys())[np.argmax(list(topk_words.values()))]
     if idx == highest_idx:
         return topk_words[idx], k
@@ -47,15 +46,15 @@ def topk_search(model: Model, prefix: str, idx: int, k=5, high=40):
 
     # initialize high
     logit_bias = {idx: high}
-    new_max_idx = model.median_argmax(k, model, prefix, logit_bias)
+    new_max_idx = model.argmax(prefix, logit_bias)
     num_calls += k
     while new_max_idx != idx:
         logit_bias[idx] *= 2
-        new_max_idx = model.median_argmax(k, model, prefix, logit_bias)
+        new_max_idx = model.argmax(prefix, logit_bias)
         num_calls += k
     high = logit_bias[idx]
 
-    output = model.median_topk(k, model, prefix, logit_bias)
+    output = model.topk(prefix, logit_bias)
     num_calls += k
 
     # compute normalizing constant

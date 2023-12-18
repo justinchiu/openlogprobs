@@ -15,7 +15,7 @@ class Model(abc.ABC):
         return -1
 
     @abc.abstractmethod
-    def argmax(self, prefix: str, logit_bias: Dict[str, float] = {}) -> str
+    def argmax(self, prefix: str, logit_bias: Dict[str, float] = {}) -> str:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -33,13 +33,14 @@ class Model(abc.ABC):
     def median_argmax(self, k, *args, **kwargs):
         """Runs the same argmax query multiple times and returns the median. Useful
         to combat API nondeterminism when calling argmax()."""
-        return np.median([self.argmax(*args, **kwargs) for _ in range(k)])
+        results = [self.argmax(*args, **kwargs) for _ in range(k)]
+        return np.median()
 
 
 class OpenAIModel(Model):
     """Model wrapper for OpenAI API."""
     def __init__(self, model: str, system: Optional[str] = None):
-        self.encoding = tiktoken.encoding_for_model(model
+        self.encoding = tiktoken.encoding_for_model(model)
         self.client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"])
         self.system = (system or "You are a helpful assistant.")
     
@@ -47,13 +48,13 @@ class OpenAIModel(Model):
     def vocab_size(self) -> int:
         return self.encoding.n_vocab
     
-    def argmax(self, prefix: str, logit_bias:  Dict[str, float] = {}) -> str
+    def argmax(self, prefix: str, logit_bias:  Dict[str, float] = {}) -> str:
         model = self.model
         system = self.system
         enc = tiktoken.encoding_for_model(model)
         if model == "gpt-3.5-turbo-instruct":
             if logit_bias is not None:
-                response = client.completions.create(
+                response = self.client.completions.create(
                     model=model,
                     prompt=prefix,
                     temperature=0,
@@ -62,7 +63,7 @@ class OpenAIModel(Model):
                     n=1,
                 )
             else:
-                response = client.completions.create(
+                response = self.client.completions.create(
                     model=model,
                     prompt=prefix,
                     temperature=0,
@@ -76,7 +77,7 @@ class OpenAIModel(Model):
             outputs = [choice.text for choice in response.choices]
         else:
             if logit_bias is not None:
-                response = client.chat.completions.create(
+                response = self.client.chat.completions.create(
                     model=model,
                     messages=[
                         {"role": "system", "content": system},
@@ -88,7 +89,7 @@ class OpenAIModel(Model):
                     n=1,
                 )
             else:
-                response = client.chat.completions.create(
+                response = self.client.chat.completions.create(
                     model=model,
                     messages=[
                         {"role": "system", "content": system},
@@ -112,7 +113,7 @@ class OpenAIModel(Model):
         system = self.system
         if model == "gpt-3.5-turbo-instruct":
             if logit_bias is not None:
-                response = client.completions.create(
+                response = self.client.completions.create(
                     model=model,
                     prompt=prefix,
                     temperature=1,
@@ -121,7 +122,7 @@ class OpenAIModel(Model):
                     logprobs=5,
                 )
             else:
-                response = client.completions.create(
+                response = self.client.completions.create(
                     model=model,
                     prompt=prefix,
                     temperature=1,
