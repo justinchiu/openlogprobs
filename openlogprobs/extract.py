@@ -3,6 +3,7 @@ import tiktoken
 import numpy as np
 from scipy.special import logsumexp
 import math
+from typing import Literal
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -10,7 +11,18 @@ from openlogprobs.models import Model
 from openlogprobs.utils import LockedOutput
 
 
-def bisection_search(model: Model, prefix: str, idx: int, k=1, low=0, high=32, eps=1e-8):
+def exact_solve(model: Model, prefix: str, idx: int, bias=20):
+    logit_bias = {idx: bias}
+    topk_words = model.topk(prefix, logit_bias)
+    biased_logprob = topk_words[idx]
+    biased_prob = np.exp(biased_logprob)
+    prob = 1 / (np.exp(bias) * (1 - biased_prob) / biased_prob + 1)
+    return np.log(prob), 1
+
+
+def bisection_search(
+    model: Model, prefix: str, idx: int, k=1, low=0, high=32, eps=1e-8
+):
     # check if idx is the argmax
     num_calls = k
     if model.argmax(prefix) == idx:
@@ -66,16 +78,31 @@ def topk_search(model: Model, prefix: str, idx: int, k=1, high=40):
     return logprob, num_calls
 
 
-def extract_logprobs(model: Model, prefix: str, topk: bool=False, k: int=5, eps: float=1e-6, multithread: bool = False):
+def extract_logprobs(
+    model: Model,
+    prefix: str,
+    method: Literal["bisection", "topk", "exact"] = "bisection",
+    k: int = 5,
+    eps: float = 1e-6,
+    multithread: bool = False,
+    bias: float = 20.0,
+):
     vocab_size = model.vocab_size
     output = LockedOutput(vocab_size, total_calls=0)
 
-    search = topk_search if topk else bisection_search
+    search = (
+        topk_search
+        if method == "topk"
+        else bisection_search
+        if method == "bisection"
+        else exact_solve
+    )
 
     def worker(x, output):
-        logprob, num_calls = search(model, prefix=prefix, idx=x, k=k)
+        search_kwargs = dict(bias=bias) if method == "exact" else dict(k=k)
+        logprob, num_calls = search(model, prefix=prefix, idx=x, **search_kwargs)
         output.add(num_calls, x, logprob)
-    
+
     if multithread:
         with tqdm.tqdm(total=vocab_size) as pbar:
             with ThreadPoolExecutor(max_workers=8) as pool:
