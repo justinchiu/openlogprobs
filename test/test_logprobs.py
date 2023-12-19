@@ -31,6 +31,7 @@ def load_fake_logits(vocab_size: int) -> np.ndarray:
 
 class FakeModel(Model):
     """Represents a fake API with a temperature of 1. Used for testing."""
+
     def __init__(self, vocab_size: int = 100):
         self.tokenizer = transformers.AutoTokenizer.from_pretrained("gpt2")
         self.fake_vocab_size = vocab_size
@@ -49,13 +50,13 @@ class FakeModel(Model):
             logits[token_idx] += bias
         logits = logits.astype(np.double)
         return log_softmax(logits)
-    
+
     def argmax(self, prefix: str, logit_bias: Dict[str, float] = {}) -> int:
         logits = self._add_logit_bias(logit_bias)
         return logits.argmax()
-    
+
     def topk(self, prefix: str, logit_bias: Dict[str, float] = {}) -> Dict[int, float]:
-        k = 5 # TODO: what topk?
+        k = 5  # TODO: what topk?
         logits = self._add_logit_bias(logit_bias)
         topk = logits.argsort()[-k:]
         return {k: logits[k] for k in topk}
@@ -66,9 +67,11 @@ def model():
     # return OpenAIModel("gpt-3.5-turbo-instruct")
     return FakeModel()
 
+
 @pytest.fixture
 def topk_words(model):
     return model.topk(prefix)
+
 
 def test_bisection(model, topk_words):
     true_sorted_logprobs = np.array(sorted(topk_words.values()))
@@ -107,19 +110,42 @@ def test_topk_consistency(model, topk_words):
 
 def test_extract_topk(model):
     true_logprobs = log_softmax(model.logits)
-    extracted_logprobs, num_calls = extract_logprobs(model, prefix="test", topk=True, multithread=False, k=1)
+    extracted_logprobs, num_calls = extract_logprobs(
+        model, prefix="test", method="topk", multithread=False, k=1
+    )
     np.testing.assert_allclose(true_logprobs, extracted_logprobs)
     assert num_calls == 298
 
 
 def test_extract_bisection(model):
     true_logprobs = log_softmax(model.logits)
-    extracted_logprobs, num_calls = extract_logprobs(model, prefix="test", topk=False, multithread=False, k=1)
+    extracted_logprobs, num_calls = extract_logprobs(
+        model, prefix="test", method="bisection", multithread=False, k=1
+    )
     np.testing.assert_allclose(true_logprobs, extracted_logprobs)
     assert num_calls == 3270
 
+
+def test_extract_exact(model):
+    true_logprobs = log_softmax(model.logits)
+    extracted_logprobs, num_calls = extract_logprobs(
+        model, prefix="test", method="exact", multithread=False
+    )
+    np.testing.assert_allclose(true_logprobs, extracted_logprobs)
+
+
 def test_extract_topk_multithread(model):
     true_logprobs = log_softmax(model.logits)
-    extracted_logprobs, num_calls = extract_logprobs(model, prefix="test", topk=True, multithread=True, k=1)
+    extracted_logprobs, num_calls = extract_logprobs(
+        model, prefix="test", method="topk", multithread=True, k=1
+    )
     np.testing.assert_allclose(true_logprobs, extracted_logprobs)
     assert num_calls == 298
+
+
+def test_extract_exact_multithread(model):
+    true_logprobs = log_softmax(model.logits)
+    extracted_logprobs, num_calls = extract_logprobs(
+        model, prefix="test", method="exact", multithread=True
+    )
+    np.testing.assert_allclose(true_logprobs, extracted_logprobs)

@@ -26,8 +26,19 @@ If the API exposes the top-k log-probabilities, we can efficiently extract the n
 
 ```python
 from openlogprobs import extract_logprobs
-extract_logprobs("gpt-3.5-turbo-instruct", "i like pie", topk=True)
+extract_logprobs("gpt-3.5-turbo-instruct", "i like pie", method="topk")
 ```
+
+### exact solution
+
+If the API exposes the top-k log-probabilities, we can efficiently extract the next-token probabilities via our 'exact' algorithm:
+
+```python
+from openlogprobs import extract_logprobs
+extract_logprobs("gpt-3.5-turbo-instruct", "i like pie", method="exact")
+```
+
+This method requires fewer API calls then the top-k algorithm (1 call per token).
 
 ### binary search
 
@@ -35,7 +46,7 @@ If the API does not expose top-k logprobs, we can still extract the distribution
 
 ```python
 from openlogprobs import extract_logprobs
-extract_logprobs("gpt-3.5-turbo-instruct", "i like pie", topk=False)
+extract_logprobs("gpt-3.5-turbo-instruct", "i like pie", method="bisection")
 ```
 
 ### Future work (help wanted!)
@@ -43,8 +54,11 @@ extract_logprobs("gpt-3.5-turbo-instruct", "i like pie", topk=False)
 - support multiple logprobs (concurrent binary search)
 - estimate costs for various APIs
 - support checkpointing
+- coming soon: concurrent exact solution, i.e. retrieve all logprobs in `v/k` API calls
 
-## Algorithm
+## Algorithms
+
+### Bisection and top-k 
 
 Our algorithm is esssentially a binary search (technically 'univariate bisection' on a continuous variable) where we apply different amounts of logit bias to make certain tokens likely enough to appear in the generation. This allows us to estimate the probability of any token relative to the most likely token. To obtain the full vector of probabilities, we can run this binary search on every token in the vocabulary. Note that essentially all models support logit bias, and for that to work, all models that support logit bias must be open-vocabulary.
 
@@ -54,10 +68,16 @@ Here's a crude visualization of how our algorithm works for a single token:
 
 Each API call (purple) brings us successively closer to the true token probability (green).
 
+### Exact solution
+
+Our exact solution algorithm solves directly for the logprobs. 
+To understand the math, see [this outline](outline.pdf).
 
 ## Language Model Inversion paper
 
 This algorithm was developed mainly by Justin Chiu to facilitate the paper [*Language Model Inversion*](https://arxiv.org/abs/2311.13647). If you're using our algorithm in academic research, please cite our paper:
+
+The exact solution algortithm was contributed by [Matthew Finlayson](https://mattf1n.github.io).
 
 ```
 @misc{morris2023language,
