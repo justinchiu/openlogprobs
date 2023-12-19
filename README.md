@@ -71,7 +71,7 @@ Each API call (purple) brings us successively closer to the true token probabili
 ### Exact solution
 
 Our exact solution algorithm solves directly for the logprobs. 
-To understand the math, see [this outline]("outline.pdf").
+To understand the math, see [this outline]("./outline.pdf").
 
 ## Language Model Inversion paper
 
