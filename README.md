@@ -15,7 +15,7 @@ pip install openlogprobs
 
 Many API-based language model services hide the log-probability outputs from their models. One reason is security – language model outputs can reveal information about their inputs and can be used for efficient model distillation. Another reason is a practical one: serving 30,000 (or whatever the vocabulary size is) floats via an API would take way too much data for a typical API request. So this information is hidden to you.
 
-However, most APIs also allow a 'logit bias' argument to positively or negatively influence the likelihood of ceertain tokens in language model output. It turns out, though, that we can use this logit bias on individual tokens to reverse-engineer their log probabilities. We developed an algorithm to do this efficiently, which effectively allows us to extract *full probability vectors* via APIs such as the OpenAI API. For more information, read the below section about the algorithm, or read the code in openlogprobs/extract.py.
+However, most APIs also allow a 'logit bias' argument to positively or negatively influence the likelihood of certain tokens in language model output. It turns out, though, that we can use this logit bias on individual tokens to reverse-engineer their log probabilities. We developed an algorithm to do this efficiently, which effectively allows us to extract *full probability vectors* via APIs such as the OpenAI API. For more information, read the below section about the algorithm, or read the code in openlogprobs/extract.py.
 
 
 ## Usage
