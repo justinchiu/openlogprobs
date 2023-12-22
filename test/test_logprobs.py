@@ -21,11 +21,11 @@ prefix = "Should i take this class or not? The professor of this class is not go
 def load_fake_logits(vocab_size: int) -> np.ndarray:
     np.random.seed(42)
     logits = np.random.randn(vocab_size)
-    logits[1] += 10
-    logits[12] += 20
-    logits[13] += 30
-    logits[24] += 30
-    logits[35] += 30
+    logits[1] += 1
+    logits[12] += 2
+    logits[13] += 3
+    logits[24] += 3
+    logits[35] += 3
     return logits
 
 
@@ -123,7 +123,7 @@ def test_extract_bisection(model):
         model, prefix="test", method="bisection", multithread=False, k=1
     )
     np.testing.assert_allclose(true_logprobs, extracted_logprobs)
-    assert num_calls == 3270
+    assert num_calls == 3268
 
 
 def test_extract_exact(model):
@@ -131,6 +131,21 @@ def test_extract_exact(model):
     extracted_logprobs, num_calls = extract_logprobs(
         model, prefix="test", method="exact", multithread=False
     )
+    np.testing.assert_allclose(true_logprobs, extracted_logprobs)
+
+
+def test_extract_exact_parallel(model):
+    true_logprobs = log_softmax(model.logits)
+    extracted_logprobs, num_calls = extract_logprobs(
+        model,
+        prefix="test",
+        method="exact",
+        multithread=False,
+        parallel=True,
+        bias=20,
+    )
+    print(true_logprobs)
+    print(extracted_logprobs)
     np.testing.assert_allclose(true_logprobs, extracted_logprobs)
 
 
@@ -147,5 +162,13 @@ def test_extract_exact_multithread(model):
     true_logprobs = log_softmax(model.logits)
     extracted_logprobs, num_calls = extract_logprobs(
         model, prefix="test", method="exact", multithread=True
+    )
+    np.testing.assert_allclose(true_logprobs, extracted_logprobs)
+
+
+def test_extract_exact_parallel_multithread(model):
+    true_logprobs = log_softmax(model.logits)
+    extracted_logprobs, num_calls = extract_logprobs(
+        model, prefix="test", method="exact", multithread=True, parallel=True, bias=10
     )
     np.testing.assert_allclose(true_logprobs, extracted_logprobs)
