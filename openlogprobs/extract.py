@@ -8,14 +8,7 @@ from typing import Literal
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from openlogprobs.models import Model
-from openlogprobs.utils import LockedOutput
-
-import sys
-
-if sys.version_info.minor < 12:
-    from openlogprobs.utils import batched
-else:
-    from itertools import batched
+from openlogprobs.utils import LockedOutput, batched
 
 
 def exact_solve(model: Model, prefix: str, idx: int, bias=20):
