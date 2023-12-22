@@ -10,14 +10,29 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from openlogprobs.models import Model
 from openlogprobs.utils import LockedOutput
 
+import sys
+
+if sys.version_info.minor < 12:
+    from openlogprobs.utils import batched
+else:
+    from itertools import batched
+
 
 def exact_solve(model: Model, prefix: str, idx: int, bias=20):
-    logit_bias = {idx: bias}
+    """Exact solve based on https://mattf1n.github.io/openlogprobs.html"""
+    return parallel_exact_solve(model, prefix, [idx], bias=bias)
+
+
+def parallel_exact_solve(model: Model, prefix: str, idx: list[int], bias: float = 20.0):
+    """Parallel exact solve based on https://mattf1n.github.io/openlogprobs.html"""
+    logit_bias = {i: bias for i in idx}
+    lmbda = 1 / np.exp(bias)
+    loglmbda = np.log(1) - bias
     topk_words = model.topk(prefix, logit_bias)
-    biased_logprob = topk_words[idx]
-    biased_prob = np.exp(biased_logprob)
-    prob = 1 / (np.exp(bias) * (1 - biased_prob) / biased_prob + 1)
-    return np.log(prob), 1
+    biased_logprobs = np.array([topk_words[i] for i in idx])
+    biased_probs_sum = np.exp(biased_logprobs).sum()
+    logprobs = loglmbda + biased_logprobs - np.log(1 + (lmbda - 1) * biased_probs_sum)
+    return logprobs, 1
 
 
 def bisection_search(
@@ -86,6 +101,7 @@ def extract_logprobs(
     eps: float = 1e-6,
     multithread: bool = False,
     bias: float = 20.0,
+    parallel: bool = False,
 ):
     vocab_size = model.vocab_size
     output = LockedOutput(vocab_size, total_calls=0)
@@ -95,6 +111,8 @@ def extract_logprobs(
         if method == "topk"
         else bisection_search
         if method == "bisection"
+        else parallel_exact_solve
+        if method == "exact" and parallel
         else exact_solve
     )
 
@@ -103,14 +121,19 @@ def extract_logprobs(
         logprob, num_calls = search(model, prefix=prefix, idx=x, **search_kwargs)
         output.add(num_calls, x, logprob)
 
+    if method == "exact" and parallel:
+        vocab = list(map(list, batched(range(vocab_size), k)))
+    else:
+        vocab = list(range(vocab_size))
+
     if multithread:
-        with tqdm.tqdm(total=vocab_size) as pbar:
+        with tqdm.tqdm(total=len(vocab)) as pbar:
             with ThreadPoolExecutor(max_workers=8) as pool:
-                futures = [pool.submit(worker, x, output) for x in range(vocab_size)]
+                futures = [pool.submit(worker, x, output) for x in vocab]
                 for future in as_completed(futures):
                     pbar.update(1)
     else:
-        for x in tqdm.trange(vocab_size):
+        for x in tqdm.tqdm(vocab):
             worker(x, output)
 
     return output.logits - logsumexp(output.logits), output.total_calls

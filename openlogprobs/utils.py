@@ -1,6 +1,7 @@
 import numpy as np
 import threading
 
+
 class LockedOutput:
     def __init__(self, vocab_size, total_calls=0):
         self.lock = threading.Lock()

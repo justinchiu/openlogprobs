@@ -31,14 +31,14 @@ extract_logprobs("gpt-3.5-turbo-instruct", "i like pie", method="topk")
 
 ### exact solution
 
-If the API exposes the top-k log-probabilities, we can efficiently extract the next-token probabilities via our 'exact' algorithm:
+If the API exposes the top-k log-probabilities, we can efficiently extract the next-token probabilities k-at-a-time via our 'exact' algorithm:
 
 ```python
 from openlogprobs import extract_logprobs
-extract_logprobs("gpt-3.5-turbo-instruct", "i like pie", method="exact")
+extract_logprobs("gpt-3.5-turbo-instruct", "i like pie", method="exact", parallel=True)
 ```
 
-This method requires fewer API calls then the top-k algorithm (1 call per token).
+This method requires fewer API calls then the top-k algorithm (only 1 call per k tokens).
 
 ### binary search
 
@@ -54,7 +54,6 @@ extract_logprobs("gpt-3.5-turbo-instruct", "i like pie", method="bisection")
 - support multiple logprobs (concurrent binary search)
 - estimate costs for various APIs
 - support checkpointing
-- coming soon: concurrent exact solution, i.e. retrieve all logprobs in `v/k` API calls
 
 ## Algorithms
 
@@ -71,7 +70,7 @@ Each API call (purple) brings us successively closer to the true token probabili
 ### Exact solution
 
 Our exact solution algorithm solves directly for the logprobs. 
-To understand the math, see [this outline](outline.pdf).
+To understand the math, see [this outline](https://mattf1n.github.io/openlogprobs.html).
 
 ## Language Model Inversion paper
 
