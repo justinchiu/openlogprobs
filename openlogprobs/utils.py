@@ -1,5 +1,3 @@
-import numpy as np
-import threading
 from itertools import islice
 import sys
 
@@ -17,15 +15,3 @@ if sys.version_info.minor < 12:
 
 else:
     from itertools import batched
-
-
-class LockedOutput:
-    def __init__(self, vocab_size, total_calls=0):
-        self.lock = threading.Lock()
-        self.total_calls = total_calls
-        self.logits = np.zeros(vocab_size, dtype=np.float64)
-
-    def add(self, calls, x, diff):
-        with self.lock:
-            self.total_calls += calls
-            self.logits[x] = diff

@@ -21,21 +21,24 @@ prefix = "Should i take this class or not? The professor of this class is not go
 def load_fake_logits(vocab_size: int) -> np.ndarray:
     np.random.seed(42)
     logits = np.random.randn(vocab_size)
-    logits[1] += 1
-    logits[12] += 2
-    logits[13] += 3
-    logits[24] += 3
-    logits[35] += 3
+    logits[1] += 10
+    logits[12] += 20
+    logits[13] += 30
+    logits[24] += 30
+    logits[35] += 30
     return logits
 
 
 class FakeModel(Model):
     """Represents a fake API with a temperature of 1. Used for testing."""
 
-    def __init__(self, vocab_size: int = 100):
+    def __init__(self, vocab_size: int = 100, get_logits=None):
         self.tokenizer = transformers.AutoTokenizer.from_pretrained("gpt2")
         self.fake_vocab_size = vocab_size
-        self.logits = load_fake_logits(self.vocab_size)[:vocab_size]
+        if get_logits is None:
+            self.logits = load_fake_logits(self.vocab_size)[:vocab_size]
+        else:
+            self.logits = get_logits(vocab_size)
 
     @property
     def vocab_size(self):
@@ -66,6 +69,12 @@ class FakeModel(Model):
 def model():
     # return OpenAIModel("gpt-3.5-turbo-instruct")
     return FakeModel()
+
+
+@pytest.fixture
+def uniform_model():
+    # return OpenAIModel("gpt-3.5-turbo-instruct")
+    return FakeModel(get_logits=np.ones)
 
 
 @pytest.fixture
@@ -123,7 +132,7 @@ def test_extract_bisection(model):
         model, prefix="test", method="bisection", multithread=False, k=1
     )
     np.testing.assert_allclose(true_logprobs, extracted_logprobs)
-    assert num_calls == 3268
+    assert num_calls == 3270
 
 
 def test_extract_exact(model):
@@ -132,6 +141,7 @@ def test_extract_exact(model):
         model, prefix="test", method="exact", multithread=False
     )
     np.testing.assert_allclose(true_logprobs, extracted_logprobs)
+    assert num_calls < len(true_logprobs)
 
 
 def test_extract_exact_parallel(model):
@@ -142,11 +152,9 @@ def test_extract_exact_parallel(model):
         method="exact",
         multithread=False,
         parallel=True,
-        bias=20,
     )
-    print(true_logprobs)
-    print(extracted_logprobs)
     np.testing.assert_allclose(true_logprobs, extracted_logprobs)
+    assert num_calls < len(true_logprobs)
 
 
 def test_extract_topk_multithread(model):
@@ -164,11 +172,25 @@ def test_extract_exact_multithread(model):
         model, prefix="test", method="exact", multithread=True
     )
     np.testing.assert_allclose(true_logprobs, extracted_logprobs)
+    assert num_calls < len(true_logprobs)
 
 
 def test_extract_exact_parallel_multithread(model):
     true_logprobs = log_softmax(model.logits)
     extracted_logprobs, num_calls = extract_logprobs(
-        model, prefix="test", method="exact", multithread=True, parallel=True, bias=10
+        model, prefix="test", method="exact", multithread=True, parallel=True
     )
     np.testing.assert_allclose(true_logprobs, extracted_logprobs)
+    assert num_calls < len(true_logprobs)
+
+
+def test_extract_exact_parallel_multithread_uniform(uniform_model):
+    true_logprobs = log_softmax(uniform_model.logits)
+    extracted_logprobs, num_calls = extract_logprobs(
+        uniform_model,
+        prefix="test",
+        method="exact",
+        parallel=True,
+    )
+    np.testing.assert_allclose(true_logprobs, extracted_logprobs)
+    assert num_calls < len(true_logprobs)
