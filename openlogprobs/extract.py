@@ -5,7 +5,7 @@ from scipy.special import logsumexp
 import math
 from functools import partial, reduce
 from operator import or_ as union
-from typing import Literal
+from typing import Literal, Optional
 
 from concurrent.futures import ThreadPoolExecutor
 
@@ -18,7 +18,7 @@ def exact_solve(
     prefix: str,
     idx: list[int],
     bias: float = 5.0,
-    top_logprob: float | None = None,
+    top_logprob: Optional[float] = None,
 ) -> tuple[dict[int, float], set[int], int]:
     """Parallel exact solve based on https://mattf1n.github.io/openlogprobs.html"""
     logit_bias = {i: bias for i in idx}
