@@ -32,10 +32,13 @@ def load_fake_logits(vocab_size: int) -> np.ndarray:
 class FakeModel(Model):
     """Represents a fake API with a temperature of 1. Used for testing."""
 
-    def __init__(self, vocab_size: int = 100):
+    def __init__(self, vocab_size: int = 100, get_logits=None):
         self.tokenizer = transformers.AutoTokenizer.from_pretrained("gpt2")
         self.fake_vocab_size = vocab_size
-        self.logits = load_fake_logits(self.vocab_size)[:vocab_size]
+        if get_logits is None:
+            self.logits = load_fake_logits(self.vocab_size)[:vocab_size]
+        else:
+            self.logits = get_logits(vocab_size)
 
     @property
     def vocab_size(self):
@@ -66,6 +69,12 @@ class FakeModel(Model):
 def model():
     # return OpenAIModel("gpt-3.5-turbo-instruct")
     return FakeModel()
+
+
+@pytest.fixture
+def uniform_model():
+    # return OpenAIModel("gpt-3.5-turbo-instruct")
+    return FakeModel(get_logits=np.ones)
 
 
 @pytest.fixture
@@ -132,6 +141,20 @@ def test_extract_exact(model):
         model, prefix="test", method="exact", multithread=False
     )
     np.testing.assert_allclose(true_logprobs, extracted_logprobs)
+    assert num_calls < len(true_logprobs)
+
+
+def test_extract_exact_parallel(model):
+    true_logprobs = log_softmax(model.logits)
+    extracted_logprobs, num_calls = extract_logprobs(
+        model,
+        prefix="test",
+        method="exact",
+        multithread=False,
+        parallel=True,
+    )
+    np.testing.assert_allclose(true_logprobs, extracted_logprobs)
+    assert num_calls < len(true_logprobs)
 
 
 def test_extract_topk_multithread(model):
@@ -149,3 +172,25 @@ def test_extract_exact_multithread(model):
         model, prefix="test", method="exact", multithread=True
     )
     np.testing.assert_allclose(true_logprobs, extracted_logprobs)
+    assert num_calls < len(true_logprobs)
+
+
+def test_extract_exact_parallel_multithread(model):
+    true_logprobs = log_softmax(model.logits)
+    extracted_logprobs, num_calls = extract_logprobs(
+        model, prefix="test", method="exact", multithread=True, parallel=True
+    )
+    np.testing.assert_allclose(true_logprobs, extracted_logprobs)
+    assert num_calls < len(true_logprobs)
+
+
+def test_extract_exact_parallel_multithread_uniform(uniform_model):
+    true_logprobs = log_softmax(uniform_model.logits)
+    extracted_logprobs, num_calls = extract_logprobs(
+        uniform_model,
+        prefix="test",
+        method="exact",
+        parallel=True,
+    )
+    np.testing.assert_allclose(true_logprobs, extracted_logprobs)
+    assert num_calls < len(true_logprobs)
