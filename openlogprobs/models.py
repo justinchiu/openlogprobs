@@ -40,6 +40,7 @@ class Model(abc.ABC):
 class OpenAIModel(Model):
     """Model wrapper for OpenAI API."""
     def __init__(self, model: str, system: Optional[str] = None):
+        self.model = model
         self.encoding = tiktoken.encoding_for_model(model)
         self.client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"])
         self.system = (system or "You are a helpful assistant.")
