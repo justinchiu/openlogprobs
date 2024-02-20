@@ -2,6 +2,7 @@ from typing import Dict, Optional
 
 import abc
 import os
+import time
 
 import openai
 import numpy as np
@@ -44,6 +45,7 @@ class OpenAIModel(Model):
         self.encoding = tiktoken.encoding_for_model(model)
         self.client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"])
         self.system = (system or "You are a helpful assistant.")
+        self.max_api_retries = 5
     
     @property
     def vocab_size(self) -> int:
@@ -112,25 +114,30 @@ class OpenAIModel(Model):
         enc = self.encoding
         model = self.model
         system = self.system
-        if model == "gpt-3.5-turbo-instruct":
-            if logit_bias is not None:
-                response = self.client.completions.create(
-                    model=model,
-                    prompt=prefix,
-                    temperature=1,
-                    max_tokens=1,
-                    logit_bias=logit_bias,
-                    logprobs=5,
-                )
-            else:
-                response = self.client.completions.create(
-                    model=model,
-                    prompt=prefix,
-                    temperature=1,
-                    max_tokens=1,
-                    logprobs=5,
-                )
-        else:
-            raise NotImplementedError(f"Tried to get topk logprobs for: {model}")
-        topk_dict = response.choices[0].logprobs.top_logprobs[0]
-        return {enc.encode(x)[0]: y for x, y in topk_dict.items()}
+        for i in range(self.max_api_retries):
+            try:
+                if model == "gpt-3.5-turbo-instruct":
+                    if logit_bias is not None:
+                        response = self.client.completions.create(
+                            model=model,
+                            prompt=prefix,
+                            temperature=1,
+                            max_tokens=1,
+                            logit_bias=logit_bias,
+                            logprobs=5,
+                        )
+                    else:
+                        response = self.client.completions.create(
+                            model=model,
+                            prompt=prefix,
+                            temperature=1,
+                            max_tokens=1,
+                            logprobs=5,
+                        )
+                else:
+                    raise NotImplementedError(f"Tried to get topk logprobs for: {model}")
+                topk_dict = response.choices[0].logprobs.top_logprobs[0]
+                return {enc.encode(x)[0]: y for x, y in topk_dict.items()}
+            except IndexError: # response is empty so response.choices[0] is indexing empty list
+                print(f"OpenAI API call fail; sleeping for {10*(i+1)} seconds")
+                time.sleep(10 * (i+1))
