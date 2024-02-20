@@ -111,33 +111,67 @@ class OpenAIModel(Model):
         return enc.encode(output)[0]
     
     def topk(self, prefix: str, logit_bias: Dict[str, float] = {}) -> Dict[int, float]:
-        enc = self.encoding
-        model = self.model
-        system = self.system
         for i in range(self.max_api_retries):
             try:
-                if model == "gpt-3.5-turbo-instruct":
-                    if logit_bias is not None:
-                        response = self.client.completions.create(
-                            model=model,
-                            prompt=prefix,
-                            temperature=1,
-                            max_tokens=1,
-                            logit_bias=logit_bias,
-                            logprobs=5,
-                        )
-                    else:
-                        response = self.client.completions.create(
-                            model=model,
-                            prompt=prefix,
-                            temperature=1,
-                            max_tokens=1,
-                            logprobs=5,
-                        )
+                if self.model in ("gpt-3.5-turbo-instruct", "babbage-002", "davinci-002"):
+                    return self._instruct_logprobs(prefix, logit_bias)
+                elif self.model.startswith("gpt-4") or self.model.startswith("gpt-3"):
+                    return self._chat_logprobs(prefix, logit_bias)
                 else:
-                    raise NotImplementedError(f"Tried to get topk logprobs for: {model}")
-                topk_dict = response.choices[0].logprobs.top_logprobs[0]
-                return {enc.encode(x)[0]: y for x, y in topk_dict.items()}
+                    #this covers all openai text model names, shouldn't get here
+                    raise NotImplementedError(f"Tried to get topk logprobs for: {self.model}")
+                
             except IndexError: # response is empty so response.choices[0] is indexing empty list
                 print(f"OpenAI API call fail; sleeping for {10*(i+1)} seconds")
                 time.sleep(10 * (i+1))
+    
+    def _instruct_logprobs(self, prefix: str, logit_bias: Dict[int, float] = {}) -> Dict[int, float]:
+        if logit_bias is not None:
+            response = self.client.completions.create(
+                model=self.model,
+                prompt=prefix,
+                temperature=1,
+                max_tokens=1,
+                logit_bias=logit_bias,
+                logprobs=5,
+            )
+        else:
+            response = self.client.completions.create(
+                model=self.model,
+                prompt=prefix,
+                temperature=1,
+                max_tokens=1,
+                logprobs=5,
+            )
+        topk_dict = response.choices[0].logprobs.top_logprobs[0]
+        return {self.encoding.encode(x)[0]: y for x, y in topk_dict.items()}
+    
+    def _chat_logprobs(self, prefix: str, logit_bias: Dict[int, float] = {}) -> Dict[int, float]:
+        if logit_bias is not None:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": self.system},
+                    {"role": "user", "content": prefix},
+                ],
+                temperature=1,
+                max_tokens=1,
+                logit_bias=logit_bias,
+                logprobs=True,
+                top_logprobs=5
+            )
+        else:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": self.system},
+                    {"role": "user", "content": prefix},
+                ],
+                temperature=1,
+                max_tokens=1,
+                logprobs=True,
+                top_logprobs=5
+            )
+        raw_logprobs = response.choices[0].logprobs.content[0].top_logprobs
+        topk_dict = {self.encoding.encode(logprob.token)[0]: logprob.logprob for logprob in raw_logprobs}
+        return topk_dict
