@@ -25,8 +25,9 @@ However, most APIs also allow a 'logit bias' argument to positively or negativel
 If the API exposes the top-k log-probabilities, we can efficiently extract the next-token probabilities via our 'topk' algorithm:
 
 ```python
-from openlogprobs import extract_logprobs
-extract_logprobs("gpt-3.5-turbo-instruct", "i like pie", method="topk")
+from openlogprobs import extract_logprobs, OpenAIModel
+model = OpenAIModel("gpt-3.5-turbo-instruct")
+extract_logprobs(model, "i like pie", method="topk")
 ```
 
 ### exact solution
@@ -34,8 +35,9 @@ extract_logprobs("gpt-3.5-turbo-instruct", "i like pie", method="topk")
 If the API exposes the top-k log-probabilities, we can efficiently extract the next-token probabilities k-at-a-time via our 'exact' algorithm:
 
 ```python
-from openlogprobs import extract_logprobs
-extract_logprobs("gpt-3.5-turbo-instruct", "i like pie", method="exact", parallel=True)
+from openlogprobs import extract_logprobs, OpenAIModel
+model = OpenAIModel("gpt-3.5-turbo-instruct")
+extract_logprobs(model, "i like pie", method="exact", parallel=True)
 ```
 
 This method requires fewer API calls then the top-k algorithm (only 1 call per k tokens).
@@ -45,8 +47,9 @@ This method requires fewer API calls then the top-k algorithm (only 1 call per k
 If the API does not expose top-k logprobs, we can still extract the distribution, but it takes more language model calls:
 
 ```python
-from openlogprobs import extract_logprobs
-extract_logprobs("gpt-3.5-turbo-instruct", "i like pie", method="bisection")
+from openlogprobs import extract_logprobs, OpenAIModel
+model = OpenAIModel("gpt-3.5-turbo-instruct")
+extract_logprobs(model, "i like pie", method="bisection")
 ```
 
 ### Future work (help wanted!)
